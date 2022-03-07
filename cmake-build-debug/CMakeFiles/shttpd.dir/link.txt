@@ -1,0 +1,3 @@
+"D:\Program Files\JetBrains\CLion 2021.2.1\bin\cmake\win\bin\cmake.exe" -E rm -f CMakeFiles\shttpd.dir/objects.a
+D:\Downloads\mingw64\bin\ar.exe cr CMakeFiles\shttpd.dir/objects.a @CMakeFiles\shttpd.dir\objects1.rsp
+D:\Downloads\mingw64\bin\gcc.exe -g -Wl,--whole-archive CMakeFiles\shttpd.dir/objects.a -Wl,--no-whole-archive -o shttpd.exe -Wl,--out-implib,libshttpd.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\shttpd.dir\linklibs.rsp
