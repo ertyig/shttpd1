@@ -1,137 +1,90 @@
-
 #include "shttpd.h"
-static struct worker_ctl *wctls=NULL;
+static struct worker_ctl *wctls=NULL;//线程选项
+static int workersnum=0;//工作线程的数量
+pthread_mutex_t thread_init=PTHREAD_MUTEX_INITIALIZER;//初始化互斥锁
 
 
-struct woker_opts{
-	pthread_t th;//线程id
-	int flags;//线程状态
-	pthread_mutex_t mutex;//线程任务互斥
-	struct worker_ctl *work;//本线程的总控结构
-};
 
-//HTTP协议的方法
-typedef enum SHTTPD_METHOD_TYPE
+
+//增加线程
+//参数i是线程序号
+static int Worker_Add(int i)
 {
-    METHOD_GET,
-    METHOD_POST,
-    METHOD_PUT,
-    METHOD_DELETE,
-    METHOD_HEAD,
-    METHOD_CGI,
-    METHOD_NOTSUPPORT
-}SHTTPD_METHOD_TYPE;
+    DBGPRINT("==>Worker_Add\n");
+    pthread_t th;
+    int err=-1;
+    if(wctls[i].opts.flags==WORKER_RUNNING)
+            return 1;//如果线程已经在工作，则返回
 
-//代表一个子串，用于解析
-typedef struct vec
+    pthread_mutex_lock(&thread_init);
+    wctls[i].opts.flags=WORKER_INITED;;//状态已经初始化
+    //建立线程
+    //worker为线程处理函数
+    err= pthread_create(&th,NULL,worker,(void*)&wctls[i]);
+    pthread_mutex_unlock(&thread_init);
+    //更新线程选项
+    wctls[i].opts.th=th;
+    workersnum++;//工作线程数量增加
+
+    DBGPRINT("<==Worker_Add\n");
+    return 0;
+}
+
+
+//减少线程
+//参数i是线程序号
+static void Worker_Delete(int i)
 {
-    char *ptr;
-    int len;
-    SHTTPD_METHOD_TYPE type;
-}vec;
+    DBGPRINT("==>Worker_Delete\n");
+    //线程状态改为正在卸载
+    wctls[i].opts.flags=WORKER_DETACHING;
+    DBGPRINT("<==Worker_Delete\n");
+}
+
+//销毁线程
+static void Worker_Destory()
+{
+    DBGPRINT("==>Worker_Destory\n");
+    int i=0;
+    int clean=0;
+
+    for(i=0;i<conf_para.MaxClient;i++)
+    {
+        DBGPRINT("thread %d, status %d\n",i,wctls[i].opts.flags);
+        if(wctls[i].opts.flags!=WORKER_DETACHED)
+            //如果线程状态不是 已卸载，就调用Delete函数
+            Worker_Delete(i);//修改线程状态为WORKER_DETACHING
+    }
+
+    while(!clean)
+    {
+        clean=1;
+        for(i=0;i<conf_para.MaxClient;i++)
+        {
+            DBGPRINT("thread %d, status %d\n",i,wctls[i].opts.flags);
+            if(wctls[i].opts.flags==WORKER_RUNNING
+            ||wctls[i].opts.flags==WORKER_DETACHING)
+                clean=0;
+        }
+        if(!clean)
+            sleep(1);
+    }
+
+    DBGPRINT("<==Worker_Destory\n");
+}
 
 
-//用来保存任何类型的值
-//这里来存储解析HTTP头部的值
-union variant{
-    char *v_str;
-    int v_int;
-    big_int_t v_big_int;
-    time_t v_time;
-    void (*v_func)(void);
-    void *v_void;
-    struct vec v_vec;
-};
-
-
-//保存解析的HTTP头部
-struct headers {
-    union variant cl;
-    union variant ct;
-    union variant connection;
-    union variant ims;
-    union variant user;
-    union variant auth;
-    union variant useragent;
-    union variant cookie;
-    union variant location;
-    union variant range;
-    union variant status;
-    union transenc;
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-#define URI_MAX 16384
-//请求结构
-struct conn_request{
-    struct vec req;//请求向量
-    char *head;//请求头部，‘\0’结尾
-    char *uri;//请求URI，'\0'结尾
-    char rpath[URI_MAX];//请求文件的真实地址，'\0'结尾
-    int method;//请求类型
-
-    //HTTP的版本信息
-    unsigned long major;//主版本
-    unsigned long minor;//副版本
-
-    struct headers ch;//头部结构
-
-    struct worker_conn *conn;//连接结构指针
-    int err;
-};
-
-//响应结构
-struct conn_response{
-    struct vec res;//响应向量
-    time_t birth_time;//建立时间
-    time_t expire_time;//超时时间
-
-    int status;//响应状态值
-    int cl;//响应内容长度
-
-    int fd;//请求文件描述符
-    struct stat fstate;//请求文件状态
-
-    struct worker_conn *conn;//连接结构指针
-};
-
-
-struct worker_conn{
-#define K 1024
-    char dreq[16*K];//请求缓冲区
-    char dres[16*K];//响应缓冲区
-
-    int cs;//与客户端连接的套接字文件描述符
-    int to;//超时时间
-
-    struct conn_response con_res;//响应结构
-    struct conn_request con_req;//请求结构
-
-    struct worker_ctl *work;//本线程的总控结构
-};
-
-
-struct worker_ctl{
-    struct woker_opts opts;//表示线程的状态
-    struct worker_conn conn;//客户端请求的状态和值
-};
-
-
-
-
-
-
+//查找线程状态为当前状态的线程序号
+static int WORKER_ISSTATUS(int status)
+{
+    int i=0;
+    for(i=0;i<conf_para.MaxClient;i++)
+    {
+        if(wctls[i].opts.flags==status)
+            return i;
+    }
+    return -1;
+}
 
 
 //初始化线程
@@ -163,13 +116,24 @@ static void Worker_Init()
         wctls[i].conn.con_req.conn=&wctls[i].conn;
         wctls[i].conn.cs=-1;//与客户端连接的socket为空
         //con_req初始化
-
+        wctls[i].conn.con_req.req.ptr=wctls[i].conn.dreq;
+        wctls[i].conn.con_req.head=wctls[i].conn.dreq;
+        wctls[i].conn.con_req.uri=wctls[i].conn.dreq;
         //con_res初始化
-
-
+        wctls[i].conn.con_res.fd=-1;
+        wctls[i].conn.con_res.res.ptr=wctls[i].conn.dres;
     }
-
+    for(i=0;i<conf_para.InitClient;i++)
+    {
+        //增加规定个数的业务线程，初始化客户端数量
+        Worker_Add(i);
+    }
+    DBGPRINT("<==Worker_Init\n");
 }
+
+
+
+
 
 
 /*主调度过程,
@@ -178,9 +142,10 @@ static void Worker_Init()
 *	将客户端连接分配给空闲客户端
 *	由客户端处理到来的请求
 */
+
+//定义调度状态
 #define STATUS_RUNNING 1
 #define STATUS_STOP 0
-//调度状态
 static int SCHEDULESTATUS=STATUS_RUNNING;
 
 int  Worker_ScheduleRun(int ss)
@@ -246,7 +211,7 @@ int Worker_ScheduleStop()
     SCHEDULESTATUS=STATUS_STOP;//给任务分配线程设置终止条件
 
     int i=0;
-    Worker_Destroy();//销毁业务线程
+    Worker_Destory();//销毁业务线程
     int  allfired=0;
     for(;!allfired;)//查询并等待业务线程终止
     {

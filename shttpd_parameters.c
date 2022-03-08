@@ -1,54 +1,10 @@
 #include "shttpd.h"
 
 
-//SHTTPD 配置文件结构
-struct conf_opts{
-	char CGIRoot[128];
-	char DefaultFile[128];
-	char DocumentRoot[128];
-	char ConfigFile[128];
-	int ListenPort;
-	int MaxClient;
-	int TimeOut;
-	int InitClient;
-};
 
 
-//默认的配置参数
-struct conf_opts conf_para={
-	"/user/local/var/www/cgi-bin/",
-	"index.html",
-	"/usr/local/var/www",
-	"/etc/SHTTPD.conf",
-	8080,
-	4,
-	3,
-	2
-};
 
-//
-//struct option{
-//    char *name;
-//    int has_arg;
-//    int *flag;
-//    int val;
-//};
 
-//短选项
-static char* shortopts="c:d:f:h:o:l:m:t:";
-//长选项
-static struct option longopts[]=
-{
-	{"CGIRoot",required_argument,NULL,'c'},
-	{"ConfigFile",required_argument,NULL,'f'},
-	{"DefaultFile",required_argument,NULL,'d'},
-	{"DocumentRoot",required_argument,NULL,'o'},
-	{"ListenPort",required_argument,NULL,'l'},
-	{"MaxClient",required_argument,NULL,'m'},
-	{"TimeOut",required_argument,NULL,'t'},
-	{"Help",required_argument,NULL,'h'},
-	{0,0,0,0},
-};
 
 //展示命令行输入方式
 void display_usage(void)
