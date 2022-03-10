@@ -1,8 +1,8 @@
 //
 // Created by leechain on 2022/3/5.
 //
-
 #ifndef SHTTPD_SHTTPD_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -101,6 +101,18 @@ typedef struct vec
 }vec;
 
 
+//将各种请求方法的结构放在结构数组中
+struct vec _shttpd_methods[]={
+        {"GET",3,METHOD_GET},
+        {"POST",4,METHOD_POST},
+        {"PUT",3,METHOD_PUT},
+        {"DELETE",6,METHOD_DELETE},
+        {"HEAD",4,METHOD_HEAD},
+        {NULL,0}
+};
+
+
+
 //用来保存任何类型的值
 //这里来存储解析HTTP头部的值
 union variant{
@@ -114,20 +126,20 @@ union variant{
 };
 
 
-//保存解析的HTTP头部
+//不含第一行的HTTP头部
 struct headers {
-    union variant cl;   //Content-Length
-    union variant ct;   //Content-Type
-    union variant connection;   //Connection
-    union variant ims;    //If-Modified-Since
-    union variant user;   //Remote user name
-    union variant auth;   //Authorization
-    union variant useragent;    //User-Agent
+    union variant cl;   //Content-Length内容长度
+    union variant ct;   //Content-Type内容类型
+    union variant connection;   //Connection连接状态
+    union variant ims;    //If-Modified-Since最后修改时间
+    union variant user;   //Remote user name用户名称
+    union variant auth;   //Authorization权限
+    union variant useragent;    //User-Agent用户代理
     union variant cookie;   //Cookie
-    union variant location;  //Location
-    union variant range;   //Range
-    union variant status;  //Status
-    union transenc;    //Transfer-Encoding
+    union variant location;  //Location位置
+    union variant range;   //Range范围
+    union variant status;  //Status状态值
+    union variant transenc;    //Transfer-Encoding编码类型
 };
 
 
@@ -141,7 +153,7 @@ struct headers {
 enum{WORKER_INITED,WORKER_RUNNING,WORKER_DETACHING,WORKER_DETACHED,WORKER_IDEL};
 
 
-struct woker_opts{
+struct worker_opts{
     pthread_t th;//线程id
     int flags;//线程状态
     pthread_mutex_t mutex;//线程任务互斥
@@ -164,7 +176,7 @@ struct conn_request{
     struct headers ch;//头部结构
 
     struct worker_conn *conn;//连接结构指针
-    int err;
+    int err;//错误代码
 };
 
 //响应结构
@@ -199,7 +211,7 @@ struct worker_conn{
 
 
 struct worker_ctl{
-    struct woker_opts opts;//表示线程的状态
+    struct worker_opts opts;//表示线程的状态
     struct worker_conn conn;//客户端请求的状态和值
 };
 
