@@ -52,3 +52,34 @@ struct mine_type builtin_mime_types[] = {
         {NULL,      -1,            0, NULL}
 };
 
+
+//根据输入的扩展名查找内容类型中的匹配项
+struct mine_type* Mine_Type(char *uri, int len, struct worker_ctl *wctl) {
+    DBGPRINT("==>Mine_Type\n");
+    int i = 0;
+    //查找扩展名的位置
+    char *ext = memchr(uri, '.', len);
+    struct mine_type *mine = NULL;
+    int found = 0;
+    ext++;//.之后，即为扩展名第一字节的位置
+    printf("uri:%s,len:%d,ext is %s\n", uri, len, ext);
+    //匹配扩展名
+    for (mine = &builtin_mime_types[i]; mine->extension != NULL; i++) {
+        if (!strncmp(mine->extension, ext, mine->ext_len)) {
+            found = 1;//找到所支持的扩展名
+            printf("found it ,ext is %s\n", mine->extension);
+            break;
+        }
+    }
+    if (!found)//未找到，默认类型为text/plain
+    {
+        mine = &builtin_mime_types[2];
+    }
+
+    DBGPRINT("<==Mine_Type\n");
+    return mine;
+}
+
+
+
+

@@ -21,7 +21,12 @@
 
 #define big_int_t long
 
-void Method_Do(struct worker_ctl *wctl);
+int Worker_ScheduleRun(int ss);
+int Worker_ScheduleStop();
+void Para_Init(int argc, char *argv[]);
+int Request_Parse(struct worker_ctl *wctl);
+int Request_Handle(struct worker_ctl *wctl);
+
 
 
 //SHTTPD 配置文件结构

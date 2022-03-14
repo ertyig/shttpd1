@@ -1,6 +1,30 @@
 #include "shttpd.h"
 
 
+void display_usage(void);
+static void display_para();
+static int Para_CmdParse(int argc, char *argv[]);
+void Para_FileParse(char *file);
+
+
+
+//配置参数初始化
+void Para_Init(int argc, char *argv[]) {
+    //解析命令行输入参数
+    Para_CmdParse(argc, argv);
+    //解析配置文件配置参数
+    if (strlen(conf_para.ConfigFile))
+        Para_FileParse(conf_para.ConfigFile);
+    //打印配置的参数
+    display_para();
+
+    return;
+}
+
+
+
+
+
 //展示命令行输入方式
 void display_usage(void) {
     printf("-----------------------------------\n");
@@ -197,17 +221,6 @@ void Para_FileParse(char *file) {
     return;
 }
 
-//配置参数初始化
-void Para_Init(int argc, char *argv[]) {
-    Para_CmdParse(argc, argv);
-
-    if (strlen(conf_para.ConfigFile))
-        Para_FileParse(conf_para.ConfigFile);
-
-    display_para();
-
-    return;
-}
 
 
 

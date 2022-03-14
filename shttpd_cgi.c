@@ -11,9 +11,6 @@
 
 int cgiHandler(struct worker_ctl *wctl)
 {
-    struct conn_request *req=&wctl->conn.con_req;
-    struct conn_response *res=&wctl->conn.con_res;
-    char *command=strstr(req->uri,CGISTR)+strlen(CGISTR);
 
 }
 

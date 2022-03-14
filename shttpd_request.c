@@ -5,6 +5,10 @@
 
 #include "shttpd.h"
 
+void Method_Do(struct worker_ctl *wctl);
+static time_t date_to_epoch(char *s);
+void Request_HeaderParse(char *s, int len, struct headers *parsed);
+
 static struct http_header http_headers[] = {
         {16, HDR_INT,    OFFSET(cl),         "Content-Length: "},
         {14, HDR_STRING, OFFSET(ct),         "Content-Type: "},
@@ -19,111 +23,6 @@ static struct http_header http_headers[] = {
         {19, HDR_STRING, OFFSET(transenc),   "Transfer-Encoding: "},
         {0,  HDR_INT, 0, NULL}
 };
-
-
-//将月份转换为数字
-static int montoi(char *s) {
-    DBGPRINT("==>montoi\n");
-    int retval = -1;
-    static char *ar[] = {
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    };
-    size_t i;
-
-    for (i = 0; i < sizeof(ar) / sizeof(ar[0]); i++) {
-        if (!strcmp(s, ar[i])) {
-            retval = i;
-            goto EXITmontoi;
-        }
-    }
-    DBGPRINT("<==montoi\n");
-
-    EXITmontoi:
-    return retval;
-}
-
-//将日期转换为time_t类型
-static time_t date_to_epoch(char *s) {
-    DBGPRINT("==>date_to_epoch\n");
-    struct tm tm;
-    char mon[32];
-    int sec, min, hour, mday, month, year;
-
-    (void) memset(&tm, 0, sizeof(tm));
-    sec = min = hour = mday = month = year = 0;
-
-    if (((sscanf(s, "%d/%3s/%d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6)
-         || (sscanf(s, "%d %3s %d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6)
-         || (sscanf(s, "%*3s, %d %3s %d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6)
-         || (sscanf(s, "%d-%3s-%d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6))
-        && (month = montoi(mon)) != -1) {
-        tm.tm_mday = mday;
-        tm.tm_mon = month;
-        tm.tm_year = year;
-        tm.tm_hour = hour;
-        tm.tm_min = min;
-        tm.tm_sec = sec;
-    }
-
-    if (tm.tm_year > 1900)
-        tm.tm_year -= 1900;
-    else if (tm.tm_year < 70)
-        tm.tm_year += 100;
-
-    DBGPRINT("<==date_to_epoch\n");
-    return (mktime(&tm));//返回自 1970 年 1 月 1 日以来持续时间的秒数
-}
-
-
-//请求的头部(除开第一行)的解析
-void Request_HeaderParse(char *s, int len, struct headers *parsed) {
-    DBGPRINT("==>Request_HeaderParse\n");
-    struct http_header *h;//http_header结构指针
-    union variant *v;//通用参数
-    char *p, *e = s + len;//p指向当前位置，e指向尾部
-
-    //查找请求字符串中的头部关键字
-    while (s < e) {
-        //查找第一行末尾
-        for (p = s; p < e && *p != '\n';) {
-            p++;
-        }
-
-        //已知方法
-        for (h = http_headers; h->len != 0; h++) {
-            //字符串匹配, s和h->name比较
-            if (e - s > h->len && !strncasecmp(s, h->name, h->len)) {
-                break;
-            }
-        }
-        //将此方法放入
-        if (h->len != 0) {
-            //请求字符串中值的位置
-            s += h->len;
-            //将值存放在参数 parsed中
-            v = (union variant *) ((char *) parsed + h->offset);
-
-            //根据头部选项不同，计算不同的值
-            if (h->type == HDR_STRING)//字符串类型
-            {
-                v->v_vec.ptr = s; //字符串开始
-                v->v_vec.len = p - s;//字符串长度
-                if (p[-1] == '\r' && v->v_vec.len > 0) {
-                    v->v_vec.len++;
-                }
-            } else if (h->type == HDR_INT) //整数类型
-            {
-                v->v_big_int = strtoul(s, NULL, 10);
-            } else if (h->type == HDR_DATE)//时间格式
-            {
-                v->v_time = date_to_epoch(s);
-            }
-        }
-        s = p + 1;//转到下一个头部
-    }
-    DBGPRINT("<==Request_HeaderParse\n");
-}
 
 
 
@@ -286,10 +185,111 @@ int Request_Handle(struct worker_ctl *wctl) {
 }
 
 
+//请求的头部(除开第一行)的解析
+void Request_HeaderParse(char *s, int len, struct headers *parsed) {
+    DBGPRINT("==>Request_HeaderParse\n");
+    struct http_header *h;//http_header结构指针
+    union variant *v;//通用参数
+    char *p, *e = s + len;//p指向当前位置，e指向尾部
+
+    //查找请求字符串中的头部关键字
+    while (s < e) {
+        //查找第一行末尾
+        for (p = s; p < e && *p != '\n';) {
+            p++;
+        }
+
+        //已知方法
+        for (h = http_headers; h->len != 0; h++) {
+            //字符串匹配, s和h->name比较
+            if (e - s > h->len && !strncasecmp(s, h->name, h->len)) {
+                break;
+            }
+        }
+        //将此方法放入
+        if (h->len != 0) {
+            //请求字符串中值的位置
+            s += h->len;
+            //将值存放在参数 parsed中
+            v = (union variant *) ((char *) parsed + h->offset);
+
+            //根据头部选项不同，计算不同的值
+            if (h->type == HDR_STRING)//字符串类型
+            {
+                v->v_vec.ptr = s; //字符串开始
+                v->v_vec.len = p - s;//字符串长度
+                if (p[-1] == '\r' && v->v_vec.len > 0) {
+                    v->v_vec.len++;
+                }
+            } else if (h->type == HDR_INT) //整数类型
+            {
+                v->v_big_int = strtoul(s, NULL, 10);
+            } else if (h->type == HDR_DATE)//时间格式
+            {
+                v->v_time = date_to_epoch(s);
+            }
+        }
+        s = p + 1;//转到下一个头部
+    }
+    DBGPRINT("<==Request_HeaderParse\n");
+}
 
 
 
 
+//将月份转换为数字
+static int montoi(char *s) {
+    DBGPRINT("==>montoi\n");
+    int retval = -1;
+    static char *ar[] = {
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
+    size_t i;
+
+    for (i = 0; i < sizeof(ar) / sizeof(ar[0]); i++) {
+        if (!strcmp(s, ar[i])) {
+            retval = i;
+            goto EXITmontoi;
+        }
+    }
+    DBGPRINT("<==montoi\n");
+
+    EXITmontoi:
+    return retval;
+}
+
+//将日期转换为time_t类型
+static time_t date_to_epoch(char *s) {
+    DBGPRINT("==>date_to_epoch\n");
+    struct tm tm;
+    char mon[32];
+    int sec, min, hour, mday, month, year;
+
+    (void) memset(&tm, 0, sizeof(tm));
+    sec = min = hour = mday = month = year = 0;
+
+    if (((sscanf(s, "%d/%3s/%d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6)
+         || (sscanf(s, "%d %3s %d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6)
+         || (sscanf(s, "%*3s, %d %3s %d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6)
+         || (sscanf(s, "%d-%3s-%d %d:%d:%d", &mday, mon, &year, &hour, &min, &sec) == 6))
+        && (month = montoi(mon)) != -1) {
+        tm.tm_mday = mday;
+        tm.tm_mon = month;
+        tm.tm_year = year;
+        tm.tm_hour = hour;
+        tm.tm_min = min;
+        tm.tm_sec = sec;
+    }
+
+    if (tm.tm_year > 1900)
+        tm.tm_year -= 1900;
+    else if (tm.tm_year < 70)
+        tm.tm_year += 100;
+
+    DBGPRINT("<==date_to_epoch\n");
+    return (mktime(&tm));//返回自 1970 年 1 月 1 日以来持续时间的秒数
+}
 
 
 

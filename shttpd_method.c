@@ -2,7 +2,44 @@
 // Created by leechain on 2022/3/5.
 //
 //服务器请求方法解析
+
 #include "shttpd.h"
+
+
+static int Method_DoGet(struct worker_ctl *wctl);
+static int Method_DoPut(struct worker_ctl *wctl);
+static int Method_DoPost(struct worker_ctl *wctl);
+static int Method_DoHead(struct worker_ctl *wctl);
+static int Method_DoList(struct worker_ctl *wctl);
+struct mine_type* Mine_Type(char *uri,int len,struct worker_ctl *wctl);
+
+
+//方法的总函数，匹配方法
+void Method_Do(struct worker_ctl *wctl) {
+    DBGPRINT("==>Mehod_Do\n");
+//    if(0)
+//        Method_DoCGI(wctl);
+    //识别请求方法
+    switch (wctl->conn.con_req.method) {
+        case METHOD_GET:
+            Method_DoGet(wctl);
+            break;
+        case METHOD_PUT:
+            Method_DoPut(wctl);
+            break;
+        case METHOD_POST:
+            Method_DoPost(wctl);
+            break;
+        case METHOD_HEAD:
+            Method_DoHead(wctl);
+            break;
+        default:
+            Method_DoList(wctl);
+    }
+    DBGPRINT("<==Method_Do\n");
+}
+
+
 
 
 
@@ -134,27 +171,3 @@ static int Method_DoList(struct worker_ctl *wctl) {
     return 0;
 }
 
-//方法的总函数，匹配方法
-void Method_Do(struct worker_ctl *wctl) {
-    DBGPRINT("==>Mehod_Do\n");
-//    if(0)
-//        Method_DoCGI(wctl);
-    //识别请求方法
-    switch (wctl->conn.con_req.method) {
-        case METHOD_GET:
-            Method_DoGet(wctl);
-            break;
-        case METHOD_PUT:
-            Method_DoPut(wctl);
-            break;
-        case METHOD_POST:
-            Method_DoPost(wctl);
-            break;
-        case METHOD_HEAD:
-            Method_DoHead(wctl);
-            break;
-        default:
-            Method_DoList(wctl);
-    }
-    DBGPRINT("<==Method_Do\n");
-}
