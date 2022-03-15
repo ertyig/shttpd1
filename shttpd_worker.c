@@ -37,7 +37,7 @@ int Worker_ScheduleRun(int ss) {
     //当调度状态为running时，select()等待客户端的连接
     for (; SCHEDULESTATUS == STATUS_RUNNING;) {
         struct timeval tv;//超时时间
-        fd_set rds;//读文件集
+        fd_set rfds;//读文件集
         //printf("SCHEDULE_STATUS:%d\n",SCHEDULESTATUS);
         int retval = -1;
         //初始化文件集，将客户端连接文件描述符放入集合中
@@ -189,7 +189,7 @@ static void do_work(struct worker_ctl *wctl)
                 {
                     memset(wctl->conn.dreq,0,sizeof(wctl->conn.dreq));
                     //读取客户端数据
-                    req->len=read(wctl->conn.cs,wctl->conn.dreq);
+                    req->len=read(wctl->conn.cs,wctl->conn.dreq,sizeof(wctl->conn.dreq));
                     req->ptr=wctl->conn.dreq;
                     DBGPRINT("Read %d bytes, '%s'\n",req->len,req->ptr);
                     if(req->len>0)

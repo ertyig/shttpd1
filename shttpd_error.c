@@ -65,7 +65,7 @@ int GenerateErrorMine(struct worker_ctl *wctl)
 
     snprintf(wctl->conn.dres,
              sizeof(wctl->conn.dres),
-             "HTTP/%lu.%rlu %d %s\r\n"
+             "HTTP/%lu.%lu %d %s\r\n"
              "Content-Type:%s\r\n"
              "Content-Length:%d\r\n"
              "\r\n"

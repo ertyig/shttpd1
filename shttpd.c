@@ -46,7 +46,7 @@ int do_listen() {
     memset(&server, 0, sizeof(server));
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sinport = htons(conf_para.ListenPort);
+    server.sin_port = htons(conf_para.ListenPort);
 
     signal(SIGINT, sig_int);
     signal(SIGPIPE, sig_pipe);

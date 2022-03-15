@@ -2,10 +2,12 @@
 
 
 void display_usage(void);
-static void display_para();
-static int Para_CmdParse(int argc, char *argv[]);
-void Para_FileParse(char *file);
 
+static void display_para();
+
+static int Para_CmdParse(int argc, char *argv[]);
+
+void Para_FileParse(char *file);
 
 
 //配置参数初始化
@@ -20,9 +22,6 @@ void Para_Init(int argc, char *argv[]) {
 
     return;
 }
-
-
-
 
 
 //展示命令行输入方式
@@ -70,8 +69,10 @@ static int conf_readline(int fd, char *buff, int len) {
                 *(buff + i) = '\0';
                 break;
             }
-        } else
+        } else {
             begin = 1;
+        }
+
     }
     return i;
 }

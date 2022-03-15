@@ -18,9 +18,16 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <limits.h>
+#include <signal.h>
+#include <stddef.h>
+#include <netdb.h>
+#include <sys/wait.h>
 
 #define big_int_t long
+#define DBGPRINT printf
 
+struct worker_ctl;
 int Worker_ScheduleRun(int ss);
 int Worker_ScheduleStop();
 void Para_Init(int argc, char *argv[]);
